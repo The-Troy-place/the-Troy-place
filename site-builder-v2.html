@@ -99,6 +99,49 @@ function save(msg='Saved'){localStorage.setItem(KEY,JSON.stringify(state));if(ms
 function toast(m){let t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(window._tt);window._tt=setTimeout(()=>t.classList.remove('show'),1300)}
 function esc(x){return String(x??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
 
+function getPageLink(page){
+ return page.slug === 'index' ? 'index.html' : page.slug + '.html';
+}
+
+function syncNavigationButtons(){
+ state.pages.forEach(page => {
+  state.pages.forEach((targetPage, index) => {
+   const targetLink = getPageLink(targetPage);
+   let navBtn = page.elements.find(e => e.type === 'button' && (e.isNav === true || e.link === targetLink || e.text === targetPage.label));
+   
+   if(!navBtn){
+    const btnWidth = 130;
+    const btnHeight = 40;
+    const startX = 90;
+    const gap = 15;
+    
+    navBtn = {
+     id: uid(),
+     type: 'button',
+     x: startX + index * (btnWidth + gap),
+     y: 30,
+     w: btnWidth,
+     h: btnHeight,
+     text: targetPage.label,
+     fontSize: 14,
+     color: '#ffffff',
+     background: page.canvas.colors.accent,
+     radius: 8,
+     bold: true,
+     link: targetLink,
+     isNav: true,
+     z: page.elements.length + 1
+    };
+    page.elements.push(navBtn);
+   } else {
+    navBtn.text = targetPage.label;
+    navBtn.link = targetLink;
+    navBtn.isNav = true;
+   }
+  });
+ });
+}
+
 function renderPages(){
  $('#pages').innerHTML=state.pages.map((p,i)=>`<div class="page ${i===state.active?'active':''}" data-i="${i}"><span>${esc(p.label)}</span><span class="x">${esc(p.slug)}</span></div>`).join('');
  $$('.page').forEach(n=>n.onclick=()=>{state.active=+n.dataset.i;selected=null;renderAll()});
@@ -171,17 +214,21 @@ function add(type){let c=pg().canvas,e={id:uid(),type,x:80,y:80,w:type==='button
 $$('[data-add]').forEach(b=>b.onclick=()=>add(b.dataset.add));
 
 $('#newPage').onclick=()=>{
- let n=pageTemplate('New page','page-'+(state.pages.length+1),pg().theme||'Midnight');n.elements=[];
- state.pages.push(n);state.active=state.pages.length-1;selected=null;renderAll();save('Page created');
+ let pageNum = state.pages.length + 1;
+ let n=pageTemplate('Page '+pageNum,'page-'+pageNum,pg().theme||'Midnight');n.elements=[];
+ state.pages.push(n);
+ state.active=state.pages.length-1;
+ syncNavigationButtons();
+ selected=null;renderAll();save('Page created & navigation updated');
 };
 $('#deletePage').onclick=()=>{
  if(state.pages.length===1)return toast('You need at least one page');
  if(!confirm('Delete this page? This cannot be undone.'))return;
  state.pages.splice(state.active,1);state.active=Math.max(0,state.active-1);selected=null;renderAll();save('Page deleted');
 };
-$('#pageLabel').oninput=e=>{pg().label=e.target.value;$('#pageTitle').textContent=e.target.value;saveQuiet()};
+$('#pageLabel').oninput=e=>{pg().label=e.target.value;$('#pageTitle').textContent=e.target.value;syncNavigationButtons();saveQuiet()};
 $('#pageLabel').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();e.target.blur();save('Page name saved')}};
-$('#pageSlug').oninput=e=>{pg().slug=e.target.value.toLowerCase().replace(/[^a-z0-9-_]/g,'-');saveQuiet()};
+$('#pageSlug').oninput=e=>{pg().slug=e.target.value.toLowerCase().replace(/[^a-z0-9-_]/g,'-');syncNavigationButtons();saveQuiet()};
 $('#pageSlug').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();e.target.blur();save('URL saved')}};
 
 function applyTheme(name){let t=themes[name],p=pg(),old=themes[p.theme];p.elements.forEach(e=>{if(e.type==='text'&&e.color===old?.text)e.color=t.text});p.theme=name;p.canvas.bg=t.bg;p.canvas.colors=t;renderAll();save('Theme applied')}
@@ -197,7 +244,7 @@ function templateData(kind){
 }
 function openTemplates(){
  $('#modal').classList.add('show');$('#modal').innerHTML='<div class="modalbox"><h2>Templates</h2><div class="templates">'+['Landing','Portfolio','Store','News'].map(x=>`<div class="template" data-template="${x}"><strong>${x}</strong><small>Start with this layout and customize everything.</small></div>`).join('')+'</div><div class="modal-actions"><button class="btn" id="closeModal">Close</button></div></div>';
- $$('.template').forEach(x=>x.onclick=()=>{let p=templateData(x.dataset.template);state.pages.push(p);state.active=state.pages.length-1;selected=null;closeModal();renderAll();save('Template added')});$('#closeModal').onclick=closeModal;
+ $$('.template').forEach(x=>x.onclick=()=>{let p=templateData(x.dataset.template);state.pages.push(p);state.active=state.pages.length-1;syncNavigationButtons();selected=null;closeModal();renderAll();save('Template added')});$('#closeModal').onclick=closeModal;
 }
 function closeModal(){$('#modal').classList.remove('show')}
 $('#templatesBtn').onclick=openTemplates;$('#quickTemplates').onclick=openTemplates;
@@ -236,19 +283,25 @@ async function gh(path,options={}){
 }
 function encBytes(bytes){let s='';const chunk=0x8000;for(let i=0;i<bytes.length;i+=chunk)s+=String.fromCharCode(...bytes.subarray(i,i+chunk));return btoa(s)}
 function publishPage(p){
- const html='<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+esc(p.label)+'</title></head><body style="margin:0">'+exportPage(p)+'</body></html>';
+ const html='<!doctype html><html style="width:100%;height:100%"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+esc(p.label)+'</title></head><body style="margin:0;width:100%;height:100%">'+exportPage(p)+'</body></html>';
  return new TextEncoder().encode(html);
 }
 function exportPage(p){
  const c=p.canvas;
- return `<div style="position:relative;width:${c.w}px;height:${c.h}px;background:${esc(c.bg)};overflow:hidden">`+p.elements.map(e=>{
+ return `<div style="position:relative;width:100vw;min-height:100vh;background:${esc(c.bg)};overflow:hidden">`+p.elements.map(e=>{
  let inner='';
  if(e.type==='text')inner=`<div style="width:100%;height:100%;font-size:${e.fontSize}px;color:${esc(e.color)};font-weight:${e.bold?700:400};display:flex;align-items:center;justify-content:${e.align==='center'?'center':e.align==='right'?'flex-end':'flex-start'};padding:2px;box-sizing:border-box;white-space:pre-wrap">${esc(e.text)}</div>`;
  if(e.type==='button')inner=`<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:${esc(e.background)};color:${esc(e.color)};border-radius:${e.radius}px;font-size:${e.fontSize}px;font-weight:700">${esc(e.text)}</div>`;
  if(e.type==='image')inner=`<img src="${esc(e.src)}" style="width:100%;height:100%;object-fit:cover">`;
  if(e.type==='video')inner=`<video src="${esc(e.src)}" controls style="width:100%;height:100%;object-fit:cover"></video>`;
  if(e.type==='button'&&e.link)inner=`<a href="${esc(e.link)}" style="display:block;width:100%;height:100%;text-decoration:none">${inner}</a>`;
- return `<div style="position:absolute;left:${e.x}px;top:${e.y}px;width:${e.w}px;height:${e.h}px;z-index:${e.z||1}">${inner}</div>`}).join('')+'</div>';
+ 
+ const leftPct=(e.x/c.w)*100;
+ const topPct=(e.y/c.h)*100;
+ const widthPct=(e.w/c.w)*100;
+ const heightPct=(e.h/c.h)*100;
+
+ return `<div style="position:absolute;left:${leftPct}%;top:${topPct}%;width:${widthPct}%;height:${heightPct}%;z-index:${e.z||1}">${inner}</div>`}).join('')+'</div>';
 }
 async function putFile(path,bytes,message,sha){
  let body={message,content:encBytes(bytes),branch:state.repo.branch};if(sha)body.sha=sha;
@@ -267,9 +320,10 @@ async function publish(){
  }catch(e){alert('GitHub publish failed: '+e.message)}
 }
 $('#publishBtn').onclick=publish;
-$('#previewBtn').onclick=()=>{const w=window.open();if(w)w.document.write('<!doctype html><html><body style="margin:0">'+exportPage(pg())+'</body></html>')};
+$('#previewBtn').onclick=()=>{const w=window.open();if(w)w.document.write('<!doctype html><html style="width:100%;height:100%"><body style="margin:0;width:100%;height:100%">'+exportPage(pg())+'</body></html>')};
 
 function renderAll(){renderPages();renderCanvas();renderInspector();renderThemes();$('#bgColor').value=pg().canvas.bg;$('#bgText').value=pg().canvas.bg}
+syncNavigationButtons();
 renderAll();
 </script>
 </body></html>
