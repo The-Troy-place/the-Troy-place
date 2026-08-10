@@ -1,0 +1,33 @@
+{
+  "siteName": "Troy high exposed",
+  "theme": "editorial",
+  "pages": [
+    {
+      "id": "7n8edfz",
+      "slug": "news-square",
+      "navLabel": "News",
+      "title": "News",
+      "blocks": [
+        {
+          "type": "articles",
+          "tag": "Latest",
+          "heading": "Top stories",
+          "items": [
+            {
+              "title": "How are the hoes of troy school district keeping their vaginas fresh?",
+              "date": "Aug 10, 2026",
+              "author": "Anonymous Andy",
+              "excerpt": " Sarah Martin former tsd student has sex for the 11th time this month could she be more of a slut?"
+            },
+            {
+              "title": "",
+              "date": "",
+              "author": "",
+              "excerpt": "One student says “ God damn that pussy must be wide open as fuck I heard that shit stank”"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
