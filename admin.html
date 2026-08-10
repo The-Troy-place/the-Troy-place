@@ -70,6 +70,8 @@
 <div class="modal" id="modal"><div class="modalbox" id="modalContent"></div></div>
 <div class="toast" id="toast"></div>
 
+<script id="sitebuilder-state" type="application/json">null</script>
+
 <script>
 const KEY='troy-site-builder-v5';
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -93,7 +95,20 @@ function pageTemplate(name='Home',slug='index',theme='Midnight'){
   {id:uid(),type:'button',x:92,y:295,w:180,h:52,text:'Get started',fontSize:15,color:'#fff',background:t.accent,radius:12,bold:true,link:'#'}
  ]};
 }
-function initial(){try{let x=JSON.parse(localStorage.getItem(KEY));if(x?.pages?.length)return x}catch(e){}return {pages:[pageTemplate()],active:0,repo:{owner:'the-troy-place',name:'the-Troy-place',branch:'main',folder:''}}}
+
+function initial(){
+ try{
+  const embeddedTag=$('#sitebuilder-state');
+  if(embeddedTag&&embeddedTag.textContent.trim()&&embeddedTag.textContent.trim()!=='null'){
+   let embeddedData=JSON.parse(embeddedTag.textContent);
+   if(embeddedData?.pages?.length) return embeddedData;
+  }
+  let x=JSON.parse(localStorage.getItem(KEY));
+  if(x?.pages?.length)return x;
+ }catch(e){}
+ return {pages:[pageTemplate()],active:0,repo:{owner:'the-troy-place',name:'the-Troy-place',branch:'main',folder:''}};
+}
+
 let state=initial();
 function pg(){return state.pages[state.active]} function els(){return pg().elements} function find(id){return els().find(e=>e.id===id)}
 function save(msg='Saved'){localStorage.setItem(KEY,JSON.stringify(state));if(msg)toast(msg)}
@@ -283,11 +298,17 @@ async function gh(path,options={}){
  if(!res.ok)throw Error(data.message||res.statusText);return data;
 }
 function encBytes(bytes){let s='';const chunk=0x8000;for(let i=0;i<bytes.length;i+=chunk)s+=String.fromCharCode(...bytes.subarray(i,i+chunk));return btoa(s)}
+
 function publishPage(p){
- const stateJson=JSON.stringify(state).replace(/-->/g, '--&gt;');
- const html='<!doctype html><html style="width:100%;height:100%"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+esc(p.label)+'</title></head><body style="margin:0;width:100%;height:100%">'+exportPage(p)+'<!-- SITEBUILDER_DATA:'+stateJson+' --></body></html>';
- return new TextEncoder().encode(html);
+ const docSource = document.documentElement.outerHTML;
+ const stateJson = JSON.stringify(state);
+ const updatedDoc = docSource.replace(
+  /<script id="sitebuilder-state" type="application\/json">[\s\S]*?<\/script>/,
+  '<script id="sitebuilder-state" type="application/json">' + stateJson + '<\/script>'
+ );
+ return new TextEncoder().encode(updatedDoc);
 }
+
 function exportPage(p){
  const c=p.canvas;
  return `<div style="position:relative;width:100vw;min-height:100vh;background:${esc(c.bg)};overflow:hidden">`+p.elements.map(e=>{
@@ -305,24 +326,34 @@ function exportPage(p){
 
  return `<div style="position:absolute;left:${leftPct}%;top:${topPct}%;width:${widthPct}%;height:${heightPct}%;z-index:${e.z||1}">${inner}</div>`}).join('')+'</div>';
 }
+
 async function putFile(path,bytes,message,sha){
- let body={message,content:encBytes(bytes),branch:state.repo.branch};if(sha)body.sha=sha;
+ let body={message,content:encBytes(bytes),branch:state.repo.branch||'main'};if(sha)body.sha=sha;
  return gh(`repos/${state.repo.owner}/${state.repo.name}/contents/${path}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
 }
-async function getSha(path){try{return (await gh(`repos/${state.repo.owner}/${state.repo.name}/contents/${path}?ref=${encodeURIComponent(state.repo.branch)}`)).sha}catch(e){return null}}
+
+async function getSha(path){
+ try{
+  const res = await gh(`repos/${state.repo.owner}/${state.repo.name}/contents/${path}?ref=${encodeURIComponent(state.repo.branch||'main')}`);
+  return res.sha || null;
+ }catch(e){
+  return null;
+ }
+}
+
 async function publish(){
  try{
   if(!state.repo?.token) return repoModal();
   const folder=state.repo.folder?state.repo.folder+'/':'';
   for(const p of state.pages){
    const path=folder+(p.slug==='index'?'index.html':p.slug+'.html');
-   await putFile(path,publishPage(p),'Update '+path,await getSha(path));
+   const sha = await getSha(path);
+   await putFile(path,publishPage(p),'Update '+path,sha);
   }
   toast('Published live to GitHub');
  }catch(e){alert('GitHub publish failed: '+e.message)}
 }
 
-// UTF-8 base64 decode helper for standard/extended characters
 function decodeBase64Utf8(str) {
  return decodeURIComponent(atob(str).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
 }
@@ -335,24 +366,24 @@ async function loadLiveSite(){
   
   toast('Fetching live index.html from GitHub API...');
   
-  // Use GitHub API to bypass CORS/caching issues
   const res = await gh(`repos/${state.repo.owner}/${state.repo.name}/contents/${path}?ref=${encodeURIComponent(state.repo.branch||'main')}`);
   
   if(!res.content) throw new Error('File contents empty or missing.');
   
-  // Clean base64 string and decode UTF-8
   const cleanContent = res.content.replace(/\s/g, '');
   const html = decodeBase64Utf8(cleanContent);
 
-  const match = html.match(/<!-- SITEBUILDER_DATA:(.*?) -->/s);
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, 'text/html');
+  const embeddedTag = doc.querySelector('#sitebuilder-state');
   
-  if(!match || !match[1]){
-   throw new Error('No saved site metadata found in the published index.html. You must click "Publish to ChrisHub" at least once with this new builder version first.');
+  if(!embeddedTag || !embeddedTag.textContent.trim() || embeddedTag.textContent.trim() === 'null'){
+   throw new Error('No saved site metadata found in the published index.html. Publish from this updated version first.');
   }
 
   if(!confirm('Revert current workspace to the live published state from GitHub?')) return;
   
-  state = JSON.parse(match[1]);
+  state = JSON.parse(embeddedTag.textContent);
   selected = null;
   save('Loaded live site state');
   renderAll();
