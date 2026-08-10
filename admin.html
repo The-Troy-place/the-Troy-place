@@ -321,24 +321,33 @@ async function publish(){
   toast('Published live to GitHub');
  }catch(e){alert('GitHub publish failed: '+e.message)}
 }
+
+// UTF-8 base64 decode helper for standard/extended characters
+function decodeBase64Utf8(str) {
+ return decodeURIComponent(atob(str).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+}
+
 async function loadLiveSite(){
  try{
-  if(!state.repo?.owner || !state.repo?.name) return repoModal();
+  if(!state.repo?.token) return repoModal();
   const folder=state.repo.folder?state.repo.folder+'/':'';
   const path=folder+'index.html';
   
-  toast('Fetching live index.html...');
+  toast('Fetching live index.html from GitHub API...');
   
-  const rawUrl = `https://raw.githubusercontent.com/${state.repo.owner}/${state.repo.name}/${state.repo.branch||'main'}/${path}`;
-  const res = await fetch(rawUrl + '?cache=' + Date.now());
+  // Use GitHub API to bypass CORS/caching issues
+  const res = await gh(`repos/${state.repo.owner}/${state.repo.name}/contents/${path}?ref=${encodeURIComponent(state.repo.branch||'main')}`);
   
-  if(!res.ok) throw new Error('Could not fetch index.html from live repository');
+  if(!res.content) throw new Error('File contents empty or missing.');
   
-  const html = await res.text();
+  // Clean base64 string and decode UTF-8
+  const cleanContent = res.content.replace(/\s/g, '');
+  const html = decodeBase64Utf8(cleanContent);
+
   const match = html.match(/<!-- SITEBUILDER_DATA:(.*?) -->/s);
   
   if(!match || !match[1]){
-   throw new Error('No builder configuration metadata found inside the live site HTML.');
+   throw new Error('No saved site metadata found in the published index.html. You must click "Publish to ChrisHub" at least once with this new builder version first.');
   }
 
   if(!confirm('Revert current workspace to the live published state from GitHub?')) return;
@@ -351,6 +360,7 @@ async function loadLiveSite(){
   alert('Load Live Site failed: ' + e.message);
  }
 }
+
 $('#loadPublishBtn').onclick=loadLiveSite;
 $('#publishBtn').onclick=publish;
 $('#previewBtn').onclick=()=>{const w=window.open();if(w)w.document.write('<!doctype html><html style="width:100%;height:100%"><body style="margin:0;width:100%;height:100%">'+exportPage(pg())+'</body></html>')};
