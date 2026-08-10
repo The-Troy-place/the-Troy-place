@@ -24,13 +24,13 @@
 </head>
 <body>
 <header class="top">
- <div class="brand">Christian's <b>chris Builder</b></div>
+ <div class="brand">Christian's <b>Site Builder</b></div>
  <div class="actions">
   <button class="btn" id="templatesBtn">Templates</button>
   <button class="btn" id="repoBtn">Repository</button>
-  <button class="btn" id="loadPublishBtn">Load Last Nut</button>
+  <button class="btn" id="loadPublishBtn">Load Live Site</button>
   <button class="btn" id="previewBtn">Preview</button>
-  <button class="btn primary" id="publishBtn">Publish</button>
+  <button class="btn primary" id="publishBtn">Publish to ChrisHub</button>
  </div>
 </header>
 
@@ -72,7 +72,6 @@
 
 <script>
 const KEY='troy-site-builder-v5';
-const PUBLISH_KEY='troy-site-builder-published-v5';
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const uid=()=>Math.random().toString(36).slice(2,10), clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 let selected=null, drag=null, resize=null;
@@ -285,7 +284,8 @@ async function gh(path,options={}){
 }
 function encBytes(bytes){let s='';const chunk=0x8000;for(let i=0;i<bytes.length;i+=chunk)s+=String.fromCharCode(...bytes.subarray(i,i+chunk));return btoa(s)}
 function publishPage(p){
- const html='<!doctype html><html style="width:100%;height:100%"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+esc(p.label)+'</title></head><body style="margin:0;width:100%;height:100%">'+exportPage(p)+'</body></html>';
+ const stateJson=JSON.stringify(state).replace(/-->/g, '--&gt;');
+ const html='<!doctype html><html style="width:100%;height:100%"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+esc(p.label)+'</title></head><body style="margin:0;width:100%;height:100%">'+exportPage(p)+'<!-- SITEBUILDER_DATA:'+stateJson+' --></body></html>';
  return new TextEncoder().encode(html);
 }
 function exportPage(p){
@@ -318,22 +318,40 @@ async function publish(){
    const path=folder+(p.slug==='index'?'index.html':p.slug+'.html');
    await putFile(path,publishPage(p),'Update '+path,await getSha(path));
   }
-  localStorage.setItem(PUBLISH_KEY, JSON.stringify(state));
-  toast('Published & saved state!');
+  toast('Published live to GitHub');
  }catch(e){alert('GitHub publish failed: '+e.message)}
 }
-function loadLastPublish(){
+async function loadLiveSite(){
  try{
-  const saved=localStorage.getItem(PUBLISH_KEY);
-  if(!saved) return toast('No published state found');
-  if(!confirm('Revert current workspace to the last published state?')) return;
-  state=JSON.parse(saved);
-  selected=null;
-  save('Loaded last published state');
+  if(!state.repo?.owner || !state.repo?.name) return repoModal();
+  const folder=state.repo.folder?state.repo.folder+'/':'';
+  const path=folder+'index.html';
+  
+  toast('Fetching live index.html...');
+  
+  const rawUrl = `https://raw.githubusercontent.com/${state.repo.owner}/${state.repo.name}/${state.repo.branch||'main'}/${path}`;
+  const res = await fetch(rawUrl + '?cache=' + Date.now());
+  
+  if(!res.ok) throw new Error('Could not fetch index.html from live repository');
+  
+  const html = await res.text();
+  const match = html.match(/<!-- SITEBUILDER_DATA:(.*?) -->/s);
+  
+  if(!match || !match[1]){
+   throw new Error('No builder configuration metadata found inside the live site HTML.');
+  }
+
+  if(!confirm('Revert current workspace to the live published state from GitHub?')) return;
+  
+  state = JSON.parse(match[1]);
+  selected = null;
+  save('Loaded live site state');
   renderAll();
- }catch(e){alert('Failed to load published state: '+e.message)}
+ }catch(e){
+  alert('Load Live Site failed: ' + e.message);
+ }
 }
-$('#loadPublishBtn').onclick=loadLastPublish;
+$('#loadPublishBtn').onclick=loadLiveSite;
 $('#publishBtn').onclick=publish;
 $('#previewBtn').onclick=()=>{const w=window.open();if(w)w.document.write('<!doctype html><html style="width:100%;height:100%"><body style="margin:0;width:100%;height:100%">'+exportPage(pg())+'</body></html>')};
 
