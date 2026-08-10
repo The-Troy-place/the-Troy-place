@@ -181,7 +181,6 @@
     // --- APP STATE ---
     let state = {
       label: "Home Page",
-      version: 2, // Current schema version
       content: "",
       repo: {
         token: "",
@@ -214,21 +213,18 @@
     document.getElementById('canvas').addEventListener('input', saveLocal);
     document.getElementById('page-label-input').addEventListener('input', saveLocal);
 
-    // --- HELPER: HYDRATE/MIGRATE STATE (Universal Version Loader) ---
+    // Flexible hydrator so versions don't break loading
     function hydrateState(incomingData) {
       if (!incomingData || typeof incomingData !== 'object') return;
 
-      // Handle unversioned or legacy payload shapes seamlessly
       if (incomingData.content !== undefined) {
         state.content = incomingData.content;
       } else if (incomingData.html !== undefined) {
-        // Support legacy schema field 'html'
         state.content = incomingData.html;
       }
 
       if (incomingData.label) state.label = incomingData.label;
 
-      // Retain repo configuration if present in local state, but don't overwrite with blank token
       if (incomingData.repo) {
         state.repo.owner = incomingData.repo.owner || state.repo.owner;
         state.repo.name = incomingData.repo.name || state.repo.name;
@@ -291,26 +287,23 @@
       }
     }
 
-    // --- EXPORT & PUBLISH (SAFE TOKEN REMOVAL) ---
+    // --- EXPORT & PUBLISH ---
     function exportPage(p) {
       return `<div id="site-root">${document.getElementById('canvas').innerHTML}</div>`;
     }
 
     function publishPage(p) {
-      // 1. Clone state object
+      // Create clean state copy
       const cleanState = JSON.parse(JSON.stringify(state));
       cleanState.content = document.getElementById('canvas').innerHTML;
       cleanState.label = document.getElementById('page-label-input').value;
       
-      // 2. CRITICAL FIX: Strip sensitive tokens to prevent GitHub Secret Scanner blocks
+      // Remove token to pass GitHub Secret Scanning
       if (cleanState.repo && cleanState.repo.token) {
         delete cleanState.repo.token;
       }
 
-      // 3. Stringify payload safely
       const stateJson = JSON.stringify(cleanState).replace(/-->/g, '--&gt;');
-      
-      // 4. Construct production index.html
       const html = '<!doctype html><html style="width:100%;height:100%"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' + esc(cleanState.label) + '</title></head><body style="margin:0;width:100%;height:100%">' + exportPage(cleanState) + '<!-- SITEBUILDER_DATA:' + stateJson + ' --></body></html>';
       
       return new TextEncoder().encode(html);
@@ -329,7 +322,6 @@
         const path = "index.html";
         const url = `https://api.github.com/repos/${state.repo.owner}/${state.repo.name}/contents/${path}`;
         
-        // Check for existing sha (required for updating files on GitHub API)
         let sha = null;
         const getRes = await fetch(`${url}?ref=${state.repo.branch}`, {
           headers: {
@@ -344,7 +336,6 @@
         }
 
         const fileBytes = publishPage(state);
-        // Convert Uint8Array to base64 safely
         let binary = '';
         const len = fileBytes.byteLength;
         for (let i = 0; i < len; i++) {
@@ -383,7 +374,7 @@
       }
     }
 
-    // --- UNIVERSAL LOAD LIVE SITE ---
+    // --- LOAD LIVE SITE ---
     async function loadLiveSite() {
       if (!state.repo.token || !state.repo.owner || !state.repo.name) {
         alert("Please set up repository credentials first.");
@@ -405,10 +396,8 @@
         if (!res.ok) throw new Error("Could not fetch index.html from repository.");
 
         const data = await res.json();
-        // Decode base64 UTF-8 content safely
         const rawHtml = decodeURIComponent(escape(atob(data.content.replace(/\s/g, ''))));
 
-        // Search for metadata comment block
         const match = rawHtml.match(/<!--\s*SITEBUILDER_DATA:(.*?)\s*-->/s);
 
         if (match && match[1]) {
@@ -419,8 +408,7 @@
           saveLocal();
           setStatus("Live site loaded successfully!");
         } else {
-          // Fallback: If no metadata comment exists, extract raw HTML inside body/site-root
-          console.warn("No SITEBUILDER_DATA tag found. Falling back to parsing standard HTML.");
+          // Fallback parsing for HTML files missing metadata comments
           const parser = new DOMParser();
           const doc = parser.parseFromString(rawHtml, 'text/html');
           const rootNode = doc.getElementById('site-root') || doc.body;
@@ -429,7 +417,7 @@
             state.content = rootNode.innerHTML;
             updateUI();
             saveLocal();
-            setStatus("Loaded site layout (Legacy / Standard HTML).");
+            setStatus("Loaded site layout.");
           } else {
             throw new Error("No metadata or valid HTML body found in live index.html.");
           }
