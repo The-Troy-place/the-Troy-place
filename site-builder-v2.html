@@ -28,6 +28,7 @@
  <div class="actions">
   <button class="btn" id="templatesBtn">Templates</button>
   <button class="btn" id="repoBtn">Repository</button>
+  <button class="btn" id="loadPublishBtn">Load Last Publish</button>
   <button class="btn" id="previewBtn">Preview</button>
   <button class="btn primary" id="publishBtn">Publish to ChrisHub</button>
  </div>
@@ -71,6 +72,7 @@
 
 <script>
 const KEY='troy-site-builder-v5';
+const PUBLISH_KEY='troy-site-builder-published-v5';
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const uid=()=>Math.random().toString(36).slice(2,10), clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 let selected=null, drag=null, resize=null;
@@ -316,9 +318,22 @@ async function publish(){
    const path=folder+(p.slug==='index'?'index.html':p.slug+'.html');
    await putFile(path,publishPage(p),'Update '+path,await getSha(path));
   }
-  toast('Published to GitHub');
+  localStorage.setItem(PUBLISH_KEY, JSON.stringify(state));
+  toast('Published & saved state!');
  }catch(e){alert('GitHub publish failed: '+e.message)}
 }
+function loadLastPublish(){
+ try{
+  const saved=localStorage.getItem(PUBLISH_KEY);
+  if(!saved) return toast('No published state found');
+  if(!confirm('Revert current workspace to the last published state?')) return;
+  state=JSON.parse(saved);
+  selected=null;
+  save('Loaded last published state');
+  renderAll();
+ }catch(e){alert('Failed to load published state: '+e.message)}
+}
+$('#loadPublishBtn').onclick=loadLastPublish;
 $('#publishBtn').onclick=publish;
 $('#previewBtn').onclick=()=>{const w=window.open();if(w)w.document.write('<!doctype html><html style="width:100%;height:100%"><body style="margin:0;width:100%;height:100%">'+exportPage(pg())+'</body></html>')};
 
