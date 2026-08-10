@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Site Editor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#08080d; --panel:#0f0f17; --border:rgba(255,255,255,0.08);
+    --text:#f2f2f6; --dim:#8d8d9c; --violet:#7c5cfc; --cyan:#24e5c9;
+    --grad: linear-gradient(120deg, var(--violet), var(--cyan));
+    --ok:#24e5a0; --err:#ff6b6b;
+  }
+  *{ box-sizing:border-box; }
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:'Inter',sans-serif; min-height:100vh;
+  }
+  h1,h2,h3{ font-family:'Sora',sans-serif; letter-spacing:-0.02em; }
+
+  header{
+    padding:18px 20px; border-bottom:1px solid var(--border);
+    display:flex; align-items:center; justify-content:space-between;
+    position:sticky; top:0; background:rgba(8,8,13,0.85);
+    backdrop-filter:blur(12px); z-index:20;
+  }
+  header .brand{ font-weight:700; font-size:1rem; }
+  header .brand span{
+    background:var(--grad); -webkit-background-clip:text; background-clip:text; color:transparent;
+  }
+
+  .layout{
+    display:grid;
+    grid-template-columns: 1fr;
+    max-width: 1100px;
+    margin: 0 auto;
+    gap: 20px;
+    padding: 20px;
+  }
+  @media (min-width: 900px){
+    .layout{ grid-template-columns: 380px 1fr; align-items:start; }
+  }
+
+  .panel{
+    background:var(--panel); border:1px solid var(--border);
+    border-radius:16px; padding:20px;
+  }
+  .panel + .panel{ margin-top:16px; }
+
+  fieldset{ border:none; padding:0; margin:0 0 20px; }
+  legend{
+    font-size:0.75rem; text-transform:uppercase; letter-spacing:0.06em;
+    color:var(--cyan); font-weight:600; margin-bottom:12px;
+  }
+  label{
+    display:block; font-size:0.8rem; color:var(--dim); margin:12px 0 6px;
+  }
+  input, textarea{
+    width:100%; background:rgba(255,255,255,0.04); border:1px solid var(--border);
+    border-radius:10px; padding:10px 12px; color:var(--text); font-family:inherit;
+    font-size:0.9rem;
+  }
+  textarea{ resize:vertical; min-height:60px; }
+  input:focus, textarea:focus{ outline:2px solid var(--violet); outline-offset:1px; }
+
+  .card-block{
+    border:1px dashed var(--border); border-radius:12px; padding:12px; margin-top:10px;
+  }
+
+  button{
+    font-family:inherit; cursor:pointer; border:none;
+  }
+  .btn{
+    padding:12px 20px; border-radius:999px; font-weight:600; font-size:0.88rem;
+    width:100%; margin-top:8px;
+  }
+  .btn-primary{ background:var(--grad); color:#06060a; }
+  .btn-primary:disabled{ opacity:0.5; cursor:not-allowed; }
+  .btn-ghost{ background:rgba(255,255,255,0.06); color:var(--text); border:1px solid var(--border); }
+
+  .preview-wrap{
+    position:sticky; top:76px;
+    border-radius:16px; overflow:hidden; border:1px solid var(--border);
+    height: 75vh;
+  }
+  .preview-wrap iframe{ width:100%; height:100%; border:none; background:#08080d; }
+
+  .status{
+    font-size:0.82rem; margin-top:10px; padding:10px 12px; border-radius:10px;
+    display:none;
+  }
+  .status.show{ display:block; }
+  .status.ok{ background:rgba(36,229,160,0.1); color:var(--ok); border:1px solid rgba(36,229,160,0.3); }
+  .status.err{ background:rgba(255,107,107,0.1); color:var(--err); border:1px solid rgba(255,107,107,0.3); }
+  .status.pending{ background:rgba(124,92,252,0.1); color:var(--violet); border:1px solid rgba(124,92,252,0.3); }
+
+  .help{ font-size:0.78rem; color:var(--dim); line-height:1.5; margin-top:6px; }
+  .help a{ color:var(--cyan); }
+
+  summary{ cursor:pointer; color:var(--dim); font-size:0.85rem; margin-bottom:10px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">Site <span>Editor</span></div>
+  <div style="font-size:0.78rem;color:var(--dim);">Changes preview live →</div>
+</header>
+
+<div class="layout">
+  <div>
+    <div class="panel">
+      <fieldset>
+        <legend>Brand</legend>
+        <label>Site name</label>
+        <input id="siteName" value="Nova">
+      </fieldset>
+
+      <fieldset>
+        <legend>Hero</legend>
+        <label>Eyebrow tag</label>
+        <input id="heroTag" value="Available for new projects">
+        <label>Heading</label>
+        <textarea id="heroTitle">Building things that feel</textarea>
+        <label>Heading highlight (gradient word/phrase)</label>
+        <input id="heroHighlight" value="effortless.">
+        <label>Subtext</label>
+        <textarea id="heroSub">I design and build clean, fast interfaces — the kind that get out of your way and just work.</textarea>
+        <label>Primary button text</label>
+        <input id="btnPrimaryText" value="See my work">
+        <label>Secondary button text</label>
+        <input id="btnSecondaryText" value="Get in touch">
+      </fieldset>
+
+      <fieldset>
+        <legend>Projects</legend>
+        <div class="card-block">
+          <label>Card 1 — title</label>
+          <input id="p1Title" value="Project One">
+          <label>Card 1 — description</label>
+          <textarea id="p1Desc">A short description of what this project does and why it matters.</textarea>
+        </div>
+        <div class="card-block">
+          <label>Card 2 — title</label>
+          <input id="p2Title" value="Project Two">
+          <label>Card 2 — description</label>
+          <textarea id="p2Desc">Another project summary — swap for whatever you're showcasing.</textarea>
+        </div>
+        <div class="card-block">
+          <label>Card 3 — title</label>
+          <input id="p3Title" value="Project Three">
+          <label>Card 3 — description</label>
+          <textarea id="p3Desc">This grid resizes itself as you add more.</textarea>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>About</legend>
+        <textarea id="aboutText" style="min-height:90px;">Replace this paragraph with your own story — what you do, what you care about, and what you're currently working on.</textarea>
+      </fieldset>
+
+      <fieldset>
+        <legend>Contact</legend>
+        <label>Email</label>
+        <input id="email" value="you@example.com">
+        <label>Twitter URL (optional)</label>
+        <input id="twitter" value="#">
+        <label>GitHub URL (optional)</label>
+        <input id="github" value="#">
+        <label>LinkedIn URL (optional)</label>
+        <input id="linkedin" value="#">
+      </fieldset>
+    </div>
+
+    <div class="panel">
+      <fieldset style="margin-bottom:0;">
+        <legend>Publish to GitHub</legend>
+        <label>Repo owner (your GitHub username)</label>
+        <input id="ghOwner" placeholder="e.g. jsmith">
+        <label>Repo name</label>
+        <input id="ghRepo" placeholder="e.g. jsmith.github.io">
+        <label>Personal Access Token</label>
+        <input id="ghToken" type="password" placeholder="ghp_xxx...">
+        <div class="help">
+          Create one at <a href="https://github.com/settings/tokens?type=beta" target="_blank">github.com/settings/tokens</a> →
+          "Generate new token" (fine-grained) → give it access to just this repo →
+          under Permissions, set <strong>Contents: Read and write</strong>.
+          Your token is saved only in this browser, and is sent directly to GitHub — never anywhere else.
+        </div>
+        <button class="btn btn-primary" id="publishBtn">Publish changes</button>
+        <button class="btn btn-ghost" id="downloadBtn">Or download index.html instead</button>
+        <div class="status" id="status"></div>
+      </fieldset>
+    </div>
+  </div>
+
+  <div class="preview-wrap">
+    <iframe id="preview" title="Live preview"></iframe>
+  </div>
+</div>
+
+<script>
+const fields = ['siteName','heroTag','heroTitle','heroHighlight','heroSub','btnPrimaryText','btnSecondaryText',
+  'p1Title','p1Desc','p2Title','p2Desc','p3Title','p3Desc','aboutText','email','twitter','github','linkedin'];
+
+const STORAGE_KEY = 'site-editor-fields';
+
+function loadSaved(){
+  try{
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+    fields.forEach(f => { if(saved[f] !== undefined) document.getElementById(f).value = saved[f]; });
+    ['ghOwner','ghRepo'].forEach(f => {
+      const v = localStorage.getItem('site-editor-' + f);
+      if(v) document.getElementById(f).value = v;
+    });
+  }catch(e){}
+}
+
+function saveFields(){
+  const data = {};
+  fields.forEach(f => data[f] = document.getElementById(f).value);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  localStorage.setItem('site-editor-ghOwner', document.getElementById('ghOwner').value);
+  localStorage.setItem('site-editor-ghRepo', document.getElementById('ghRepo').value);
+}
+
+function esc(s){
+  return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function buildHTML(){
+  const v = id => document.getElementById(id).value;
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${esc(v('siteName'))}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #08080d; --bg-soft: #0f0f17; --surface: rgba(255,255,255,0.04);
+    --surface-border: rgba(255,255,255,0.08); --text: #f2f2f6; --text-dim: #8d8d9c;
+    --violet: #7c5cfc; --cyan: #24e5c9; --grad: linear-gradient(120deg, var(--violet), var(--cyan));
+  }
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  html{ scroll-behavior: smooth; }
+  body{ background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; overflow-x: hidden; -webkit-font-smoothing: antialiased; }
+  h1,h2,h3, .display{ font-family: 'Sora', sans-serif; letter-spacing: -0.02em; }
+  a{ text-decoration:none; color:inherit; }
+  .aurora{ position: fixed; inset: 0; z-index: -1; overflow: hidden; background: var(--bg); }
+  .aurora::before, .aurora::after{ content:""; position:absolute; width: 60vmax; height: 60vmax; border-radius: 50%; filter: blur(120px); opacity: 0.35; animation: drift 22s ease-in-out infinite alternate; }
+  .aurora::before{ background: var(--violet); top: -20%; left: -10%; }
+  .aurora::after{ background: var(--cyan); bottom: -25%; right: -10%; animation-delay: -8s; }
+  @keyframes drift{ 0%{ transform: translate(0,0) scale(1); } 50%{ transform: translate(4%, 6%) scale(1.08); } 100%{ transform: translate(-4%, -3%) scale(0.96); } }
+  @media (prefers-reduced-motion: reduce){ .aurora::before, .aurora::after{ animation: none; } html{ scroll-behavior: auto; } }
+  nav{ position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 50; display:flex; align-items:center; gap: 6px; padding: 8px; border-radius: 999px; background: rgba(15,15,23,0.6); border: 1px solid var(--surface-border); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
+  nav a{ padding: 8px 18px; font-size: 0.85rem; font-weight: 500; color: var(--text-dim); border-radius: 999px; transition: color 0.25s ease, background 0.25s ease; }
+  nav a:hover{ color: var(--text); background: var(--surface); }
+  nav .brand{ font-family:'Sora', sans-serif; font-weight:700; font-size: 0.95rem; padding: 8px 14px 8px 16px; color: var(--text); letter-spacing: -0.01em; }
+  nav .dot{ width:6px; height:6px; border-radius:50%; background: var(--grad); display:inline-block; margin-right:8px; box-shadow: 0 0 10px var(--cyan); }
+  .hero{ min-height: 100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding: 120px 24px 80px; }
+  .eyebrow{ display:inline-flex; align-items:center; gap:8px; padding: 6px 14px; border-radius: 999px; background: var(--surface); border: 1px solid var(--surface-border); font-size: 0.78rem; color: var(--text-dim); margin-bottom: 28px; opacity:0; animation: rise 0.8s ease forwards; }
+  .eyebrow .pulse{ width:7px; height:7px; border-radius:50%; background: var(--cyan); box-shadow: 0 0 8px var(--cyan); animation: pulse 2s ease-in-out infinite; }
+  @keyframes pulse{ 0%,100%{ opacity:1; } 50%{ opacity:0.3; } }
+  .hero h1{ font-size: clamp(2.6rem, 7vw, 5.2rem); font-weight: 800; line-height: 1.05; max-width: 16ch; opacity:0; animation: rise 0.8s ease 0.1s forwards; }
+  .hero h1 .grad{ background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .hero p{ margin-top: 22px; max-width: 46ch; color: var(--text-dim); font-size: 1.05rem; line-height: 1.6; opacity:0; animation: rise 0.8s ease 0.2s forwards; }
+  .hero-cta{ display:flex; gap: 14px; margin-top: 38px; opacity:0; animation: rise 0.8s ease 0.3s forwards; }
+  @keyframes rise{ from{ opacity:0; transform: translateY(18px); } to{ opacity:1; transform: translateY(0); } }
+  .btn{ padding: 13px 26px; border-radius: 999px; font-size: 0.9rem; font-weight: 600; transition: transform 0.25s ease, box-shadow 0.25s ease, opacity 0.25s ease; display:inline-block; }
+  .btn-primary{ background: var(--grad); color: #06060a; }
+  .btn-primary:hover{ transform: translateY(-2px); box-shadow: 0 8px 30px rgba(124,92,252,0.35); }
+  .btn-ghost{ background: var(--surface); border: 1px solid var(--surface-border); color: var(--text); }
+  .btn-ghost:hover{ background: rgba(255,255,255,0.08); transform: translateY(-2px); }
+  section{ max-width: 1080px; margin: 0 auto; padding: 100px 24px; }
+  .section-head{ margin-bottom: 48px; }
+  .section-head .tag{ color: var(--cyan); font-size: 0.8rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+  .section-head h2{ font-size: clamp(1.8rem, 4vw, 2.6rem); font-weight: 700; margin-top: 10px; }
+  .section-head p{ color: var(--text-dim); margin-top: 12px; max-width: 56ch; line-height: 1.6; }
+  .grid{ display:grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+  @media (max-width: 800px){ .grid{ grid-template-columns: 1fr; } }
+  .card{ background: var(--surface); border: 1px solid var(--surface-border); border-radius: 20px; padding: 28px; backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); transition: transform 0.35s ease, border-color 0.35s ease, background 0.35s ease; opacity: 0; transform: translateY(24px); }
+  .card.in-view{ opacity: 1; transform: translateY(0); transition: opacity 0.7s ease, transform 0.7s ease; }
+  .card:hover{ transform: translateY(-6px); border-color: rgba(124,92,252,0.4); background: rgba(255,255,255,0.06); }
+  .card .icon{ width: 42px; height:42px; border-radius: 12px; background: var(--grad); display:flex; align-items:center; justify-content:center; font-size: 1.1rem; margin-bottom: 18px; }
+  .card h3{ font-size: 1.1rem; font-weight: 600; margin-bottom: 8px; }
+  .card p{ color: var(--text-dim); font-size: 0.92rem; line-height: 1.6; }
+  footer{ max-width: 1080px; margin: 0 auto; padding: 70px 24px 60px; text-align:center; border-top: 1px solid var(--surface-border); }
+  footer h2{ font-size: clamp(1.8rem, 4vw, 2.4rem); font-weight: 700; margin-bottom: 18px; }
+  footer .foot-meta{ margin-top: 60px; display:flex; justify-content: space-between; align-items:center; color: var(--text-dim); font-size: 0.82rem; flex-wrap: wrap; gap: 12px; }
+  footer .foot-meta a{ color: var(--text-dim); transition: color 0.2s ease; }
+  footer .foot-meta a:hover{ color: var(--text); }
+  ::selection{ background: var(--violet); color: #fff; }
+  a:focus-visible, button:focus-visible{ outline: 2px solid var(--cyan); outline-offset: 3px; }
+</style>
+</head>
+<body>
+<div class="aurora"></div>
+<nav>
+  <a class="brand"><span class="dot"></span>${esc(v('siteName'))}</a>
+  <a href="#work">Work</a>
+  <a href="#about">About</a>
+  <a href="#contact">Contact</a>
+</nav>
+<section class="hero">
+  <div class="eyebrow"><span class="pulse"></span>${esc(v('heroTag'))}</div>
+  <h1>${esc(v('heroTitle'))} <span class="grad">${esc(v('heroHighlight'))}</span></h1>
+  <p>${esc(v('heroSub'))}</p>
+  <div class="hero-cta">
+    <a href="#work" class="btn btn-primary">${esc(v('btnPrimaryText'))}</a>
+    <a href="#contact" class="btn btn-ghost">${esc(v('btnSecondaryText'))}</a>
+  </div>
+</section>
+<section id="work">
+  <div class="section-head">
+    <div class="tag">Selected work</div>
+    <h2>A few things I've built</h2>
+  </div>
+  <div class="grid">
+    <div class="card"><div class="icon">✦</div><h3>${esc(v('p1Title'))}</h3><p>${esc(v('p1Desc'))}</p></div>
+    <div class="card"><div class="icon">◆</div><h3>${esc(v('p2Title'))}</h3><p>${esc(v('p2Desc'))}</p></div>
+    <div class="card"><div class="icon">●</div><h3>${esc(v('p3Title'))}</h3><p>${esc(v('p3Desc'))}</p></div>
+  </div>
+</section>
+<section id="about">
+  <div class="section-head">
+    <div class="tag">About</div>
+    <h2>A little about me</h2>
+    <p>${esc(v('aboutText'))}</p>
+  </div>
+</section>
+<footer id="contact">
+  <h2>Let's talk.</h2>
+  <a href="mailto:${esc(v('email'))}" class="btn btn-primary">${esc(v('email'))}</a>
+  <div class="foot-meta">
+    <span>© 2026 ${esc(v('siteName'))}</span>
+    <span>
+      <a href="${esc(v('twitter'))}">Twitter</a> &nbsp;·&nbsp; <a href="${esc(v('github'))}">GitHub</a> &nbsp;·&nbsp; <a href="${esc(v('linkedin'))}">LinkedIn</a>
+    </span>
+  </div>
+</footer>
+<script>
+  const cards = document.querySelectorAll('.card');
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('in-view'); });
+  }, { threshold: 0.2 });
+  cards.forEach(c => io.observe(c));
+<\/script>
+</body>
+</html>`;
+}
+
+function refreshPreview(){
+  saveFields();
+  document.getElementById('preview').srcdoc = buildHTML();
+}
+
+fields.forEach(f => document.getElementById(f).addEventListener('input', refreshPreview));
+
+function showStatus(msg, type){
+  const el = document.getElementById('status');
+  el.textContent = msg;
+  el.className = 'status show ' + type;
+}
+
+document.getElementById('downloadBtn').addEventListener('click', () => {
+  const blob = new Blob([buildHTML()], {type: 'text/html'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'index.html';
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+document.getElementById('publishBtn').addEventListener('click', async () => {
+  const owner = document.getElementById('ghOwner').value.trim();
+  const repo = document.getElementById('ghRepo').value.trim();
+  const token = document.getElementById('ghToken').value.trim();
+  const btn = document.getElementById('publishBtn');
+
+  if(!owner || !repo || !token){
+    showStatus('Fill in repo owner, repo name, and token first.', 'err');
+    return;
+  }
+
+  btn.disabled = true;
+  showStatus('Publishing…', 'pending');
+  saveFields();
+
+  try{
+    const apiBase = \`https://api.github.com/repos/\${owner}/\${repo}/contents/index.html\`;
+
+    // Get current file SHA (required to update an existing file)
+    let sha = undefined;
+    const getRes = await fetch(apiBase, {
+      headers: { 'Authorization': \`Bearer \${token}\`, 'Accept': 'application/vnd.github+json' }
+    });
+    if(getRes.ok){
+      const data = await getRes.json();
+      sha = data.sha;
+    } else if(getRes.status !== 404){
+      throw new Error('Could not read repo (' + getRes.status + '). Check owner/repo/token.');
+    }
+
+    const content = buildHTML();
+    const encoded = btoa(unescape(encodeURIComponent(content)));
+
+    const putRes = await fetch(apiBase, {
+      method: 'PUT',
+      headers: {
+        'Authorization': \`Bearer \${token}\`,
+        'Accept': 'application/vnd.github+json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        message: 'Update site via editor',
+        content: encoded,
+        sha: sha
+      })
+    });
+
+    if(!putRes.ok){
+      const err = await putRes.json().catch(()=>({}));
+      throw new Error(err.message || ('GitHub returned ' + putRes.status));
+    }
+
+    showStatus('Published! Give it a minute, then refresh your site.', 'ok');
+  }catch(e){
+    showStatus('Failed: ' + e.message, 'err');
+  }finally{
+    btn.disabled = false;
+  }
+});
+
+loadSaved();
+refreshPreview();
+</script>
+
+</body>
+</html>
