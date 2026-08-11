@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Enter</title>
+<style>
+  :root{--bg:#07060d;--accent:#8b6cff;--text:#f5f2ff;--muted:#8f87a8;--border:#29293a}
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+    background:radial-gradient(circle at 30% 20%,rgba(139,108,255,0.12),var(--bg) 60%);
+    font-family:Inter,system-ui,sans-serif;color:var(--text)}
+  .card{width:min(360px,90vw);padding:32px 28px;border-radius:18px;
+    background:rgba(255,255,255,0.03);border:1px solid rgba(139,108,255,0.35);
+    box-shadow:0 0 40px rgba(139,108,255,0.25);text-align:center}
+  h1{margin:0 0 6px;font-size:22px}
+  p{margin:0 0 22px;color:var(--muted);font-size:13px}
+  input{width:100%;padding:12px 14px;border-radius:10px;border:1px solid var(--border);
+    background:#0a0a10;color:var(--text);font-size:14px;outline:none;margin-bottom:12px}
+  input:focus{border-color:var(--accent)}
+  button{width:100%;padding:12px;border-radius:999px;border:none;background:var(--accent);
+    color:#fff;font-weight:700;font-size:14px;cursor:pointer}
+  button:hover{opacity:.9}
+  #err{color:#ff6d83;font-size:12px;min-height:16px;margin-top:10px}
+</style>
+</head>
+<body>
+  <form class="card" id="gateForm">
+    <h1>Enter</h1>
+    <p>This page is password-protected.</p>
+    <input type="password" id="pw" placeholder="Password" autocomplete="off" autofocus>
+    <button type="submit">Continue</button>
+    <div id="err"></div>
+  </form>
+
+<script>
+  // ---- Configuration ----
+  // Your password, in plain text. Yes, plain text — this is a client-side-only
+  // gate with no backend, so a hash here doesn't add real protection anyone
+  // couldn't get around just as easily by reading it from the page source.
+  // Just change the word below to whatever you want the password to be.
+  const PASSWORD = 'changeme';
+
+  // Where to send people once they get the password right.
+  const DESTINATION = 'page-2.html';
+
+  // ---- Logic (no need to touch below this line) ----
+  document.getElementById('gateForm').addEventListener('submit', (e)=>{
+    e.preventDefault();
+    const pw = document.getElementById('pw').value;
+    const err = document.getElementById('err');
+
+    if(pw === PASSWORD){
+      // Remember this for the current browser tab session only.
+      sessionStorage.setItem('gate-unlocked', 'true');
+      window.location.href = DESTINATION;
+    } else {
+      err.textContent = 'Incorrect password.';
+      document.getElementById('pw').value = '';
+      document.getElementById('pw').focus();
+    }
+  });
+</script>
+</body>
+</html>
